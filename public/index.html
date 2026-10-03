@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DailyKart-Local Delivery</title>
+  
+  <!-- Tailwind CSS & FontAwesome Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-orange-50/40 text-gray-900 pb-28">
+
+  <!-- Top Sticky Header -->
+  <header class="sticky top-0 z-40 bg-white border-b border-orange-100 shadow-sm">
+    <div class="max-w-4xl mx-auto px-4 py-2.5">
+      <div class="flex items-center justify-between gap-2">
+        
+        <!-- Brand & Header Location Picker -->
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-orange-200 shrink-0">
+            <i class="fa-solid fa-truck-fast"></i>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-sm sm:text-base font-extrabold text-orange-600 truncate leading-tight">DailyKart-Local Delivery</h1>
+            <!-- Area Selector in Header -->
+            <button onclick="toggleAreaModal(true)" class="flex items-center gap-1 text-xs text-gray-600 hover:text-orange-600 transition font-medium">
+              <i class="fa-solid fa-location-dot text-orange-500 text-xs"></i>
+              <span id="headerSelectedArea" class="font-bold text-gray-800 underline decoration-orange-300 decoration-2 underline-offset-2 truncate max-w-[150px] sm:max-w-xs">Select Delivery Area</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Header Actions: Profile & Cart -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="toggleProfileModal(true)" class="p-2.5 rounded-full bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 transition" title="My Profile">
+            <i class="fa-regular fa-user text-base"></i>
+          </button>
+          <button onclick="toggleCartModal(true)" class="relative p-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 transition" title="View Cart">
+            <i class="fa-solid fa-bag-shopping text-base"></i>
+            <span id="cartCountBadge" class="hidden absolute -top-1 -right-1 bg-white text-orange-600 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-500 shadow-sm">0</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Search Input -->
+      <div class="mt-2.5">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-orange-400"></i>
+          <input type="text" id="searchInput" oninput="filterItems()" placeholder="Search delicious food, fresh vegetables, snacks..." 
+                 class="w-full bg-orange-50/60 border border-orange-100 rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Body -->
+  <main class="max-w-4xl mx-auto px-4 mt-4 space-y-5">
+
+    <!-- Promotional Hero Banner -->
+    <div class="rounded-3xl bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white p-5 shadow-lg shadow-orange-200 relative overflow-hidden">
+      <div class="relative z-10 max-w-sm">
+        <span class="bg-white/20 backdrop-blur-xs text-white text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider">Fast • Local • Reliable</span>
+        <h2 class="text-xl sm:text-2xl font-black mt-2 leading-tight">সতেজ খাদ্য আৰু শাক-পাচলি আপোনাৰ দুৱাৰদলিত</h2>
+        <p class="text-xs text-orange-100 mt-1.5 font-medium">Dirak, Bordirak, Tongona আদি ২৭ টা অঞ্চলত অতি ক্ষিপ্ৰ ডেলিভাৰী।</p>
+      </div>
+      <i class="fa-solid fa-burger absolute -right-4 -bottom-4 text-8xl text-white/15 rotate-12"></i>
+    </div>
+
+    <!-- Category Tabs Filter -->
+    <div class="flex gap-2 overflow-x-auto hide-scrollbar py-1" id="categoryTabs">
+      <button onclick="selectCategory('all')" class="cat-btn active px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap bg-orange-500 text-white shadow-sm shadow-orange-200">All Items</button>
+      <button onclick="selectCategory('Cooked Food')" class="cat-btn px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap bg-white text-gray-700 border border-orange-100 hover:bg-orange-50">Cooked Food</button>
+      <button onclick="selectCategory('Vegetables')" class="cat-btn px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap bg-white text-gray-700 border border-orange-100 hover:bg-orange-50">Fresh Vegetables</button>
+      <button onclick="selectCategory('Snacks')" class="cat-btn px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap bg-white text-gray-700 border border-orange-100 hover:bg-orange-50">Fast Food & Snacks</button>
+    </div>
+
+    <!-- Products Grid -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm sm:text-base font-extrabold text-gray-900">Explore Menu</h3>
+        <span class="text-xs text-orange-600 font-semibold" id="itemCountLabel">Loading items...</span>
+      </div>
+      <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+        <!-- Injected dynamically via JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Cart Alert Bar -->
+  <div id="bottomCartBar" class="hidden fixed bottom-4 inset-x-4 max-w-md mx-auto bg-orange-500 text-white p-3.5 rounded-2xl shadow-xl shadow-orange-400/40 flex items-center justify-between z-30 cursor-pointer hover:bg-orange-600 transition" onclick="toggleCartModal(true)">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-white text-orange-600 flex items-center justify-center font-extrabold text-sm shadow-inner">
+        <span id="bottomBarQty">0</span>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-wider text-orange-100 font-bold">Total Bill</p>
+        <p class="text-sm font-black" id="bottomBarTotal">₹0</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wide bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-xs">
+      View Cart <i class="fa-solid fa-arrow-right text-xs"></i>
+    </div>
+  </div>
+
+  <!-- MODAL 1: Select Delivery Area Modal (Accessible from Header) -->
+  <div id="areaModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-location-crosshairs text-orange-500"></i>
+          <h3 class="font-extrabold text-sm text-gray-800">Select Coverage Area</h3>
+        </div>
+        <button onclick="toggleAreaModal(false)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+      <p class="text-xs text-gray-500">Choose your area for fast doorstep delivery:</p>
+      <div class="max-h-64 overflow-y-auto space-y-1.5 pr-1" id="areaListContainer">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Customer Profile Modal -->
+  <div id="profileModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+            <i class="fa-solid fa-id-badge text-sm"></i>
+          </div>
+          <h3 class="font-extrabold text-base text-gray-800">Customer Profile</h3>
+        </div>
+        <button onclick="toggleProfileModal(false)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-gray-500">Save your details once to breeze through order checkouts automatically.</p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+          <input type="text" id="profName" placeholder="e.g. Priyam Baruah" class="w-full text-xs sm:text-sm bg-orange-50/50 border border-orange-100 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">WhatsApp / Phone Number</label>
+          <input type="tel" id="profPhone" placeholder="10-digit mobile number" class="w-full text-xs sm:text-sm bg-orange-50/50 border border-orange-100 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Default Delivery Area</label>
+          <select id="profArea" class="w-full text-xs sm:text-sm bg-orange-50/50 border border-orange-100 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none font-semibold text-gray-800">
+            <!-- Options dynamically added -->
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">House No. / Detailed Landmark</label>
+          <input type="text" id="profAddress" placeholder="e.g. Near Daily Market, By-lane 2" class="w-full text-xs sm:text-sm bg-orange-50/50 border border-orange-100 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none">
+        </div>
+      </div>
+
+      <button onclick="saveProfile()" class="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-md shadow-orange-200 transition text-sm">
+        Save Profile Details
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Cart & Checkout Slider/Modal -->
+  <div id="cartModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end">
+    <div class="bg-white w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden">
+      
+      <!-- Cart Header -->
+      <div class="p-4 border-b border-orange-100 flex items-center justify-between bg-orange-50/60">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-basket-shopping text-orange-500"></i>
+          <h2 class="font-extrabold text-base text-gray-800">Order Basket</h2>
+        </div>
+        <button onclick="toggleCartModal(false)" class="w-8 h-8 rounded-full bg-white border border-orange-100 hover:bg-gray-100 flex items-center justify-center text-gray-500">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Scrollable Cart Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        <!-- Cart Items List -->
+        <div>
+          <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Order Items</h4>
+          <div id="cartItemsContainer" class="space-y-2">
+            <!-- Dynamically populated -->
+          </div>
+          <div id="emptyCartNotice" class="text-center py-12 text-gray-400">
+            <i class="fa-solid fa-basket-shopping text-5xl mb-3 text-orange-200"></i>
+            <p class="text-sm font-bold text-gray-600">Your basket is currently empty!</p>
+            <p class="text-xs text-gray-400 mt-1">Add items from the menu to proceed.</p>
+          </div>
+        </div>
+
+        <!-- Checkout Form Section -->
+        <div id="checkoutFormSection" class="border-t border-orange-100 pt-4 space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Customer & Delivery Info</h4>
+            <span class="text-[10px] text-orange-600 font-semibold cursor-pointer" onclick="toggleProfileModal(true)">Edit Saved Profile</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Your Name *</label>
+            <input type="text" id="custName" placeholder="Full name" class="w-full text-xs sm:text-sm bg-orange-50/30 border border-orange-100 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Mobile / WhatsApp Number *</label>
+            <input type="tel" id="custPhone" placeholder="10-digit number" class="w-full text-xs sm:text-sm bg-orange-50/30 border border-orange-100 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Delivery Area *</label>
+            <select id="checkoutAreaSelect" class="w-full text-xs sm:text-sm bg-orange-50/30 border border-orange-100 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none font-semibold text-gray-800">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">House / Landmark / Village Details</label>
+            <input type="text" id="custAddress" placeholder="Near Namghar / School / Road name" class="w-full text-xs sm:text-sm bg-orange-50/30 border border-orange-100 rounded-xl px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none">
+          </div>
+
+          <!-- Payment Options -->
+          <div class="pt-2">
+            <label class="block text-xs font-bold text-gray-700 mb-1.5">Payment Method *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="border-2 border-orange-500 bg-orange-50/50 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer text-center" id="lblCod">
+                <input type="radio" name="paymentType" value="COD" checked onchange="handlePaymentChange('COD')" class="hidden">
+                <i class="fa-solid fa-hand-holding-dollar text-orange-500 text-lg mb-1"></i>
+                <span class="text-xs font-extrabold text-gray-800">Cash on Delivery</span>
+              </label>
+
+              <label class="border-2 border-gray-200 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer text-center" id="lblUpi">
+                <input type="radio" name="paymentType" value="UPI" onchange="handlePaymentChange('UPI')" class="hidden">
+                <i class="fa-solid fa-qrcode text-gray-500 text-lg mb-1"></i>
+                <span class="text-xs font-extrabold text-gray-800">Pay via UPI QR</span>
+              </label>
+            </div>
+
+            <!-- Dynamic UPI QR Container -->
+            <div id="upiDetailBox" class="hidden mt-3 p-3.5 bg-orange-50 border border-orange-200 rounded-2xl text-center space-y-2">
+              <p class="text-xs text-orange-950 font-semibold">UPI ID: <span class="font-mono bg-white px-2 py-0.5 rounded border border-orange-300 font-bold">9365822867@ybl</span></p>
+              <div class="bg-white p-2.5 w-36 h-36 mx-auto rounded-xl shadow-xs border border-orange-100 flex items-center justify-center">
+                <img id="upiQrImg" src="" alt="Scan & Pay QR" class="w-full h-full object-contain">
+              </div>
+              <p class="text-[11px] text-gray-500">Scan using PhonePe, Google Pay, or Paytm</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Cart Bottom Bar -->
+      <div id="cartFooter" class="p-4 border-t border-orange-100 bg-orange-50/40 space-y-2.5 hidden">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Grand Total:</span>
+          <span class="text-xl font-black text-orange-600" id="cartTotalSum">₹0</span>
+        </div>
+        <button id="orderBtn" onclick="placeOrder()" class="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black shadow-lg shadow-orange-300/50 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+          <span>Place Order on WhatsApp</span>
+          <i class="fa-brands fa-whatsapp text-lg"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // 1. CONFIGURATIONS
+    const firebaseConfig = {
+      apiKey: "AIzaSyAR1dDFOtMow0Cd41U2UvUK5Mi1xS5b1dY",
+      authDomain: "dailykart-local.firebaseapp.com",
+      projectId: "dailykart-local",
+      storageBucket: "dailykart-local.firebasestorage.app",
+      messagingSenderId: "910579642014",
+      appId: "1:910579642014:web:4da8473d86431c00c8d58f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const ADMIN_PHONE = "918761958928";
+    const UPI_ID = "9365822867@ybl";
+
+    // 2. COVERAGE AREAS (27 Localities)
+    const coverageAreas = [
+      "Dirak Charali", "Aamguri", "Bordirak", "Khatua", "Hunjan", 
+      "Navajyoti", "Simoluguri", "Uttar Bisrampur", "Dakhin Bisrampur", 
+      "Kailashpur", "Dimbujora", "Tongona", "Gutibari", "Tongona-Nagaon", 
+      "Dirakgate", "Modarkhat", "Digholi-pothar", "Huwonipothar", 
+      "Namhullung", "Tiniali Nagaon", "Betoni", "Wathoi", "Litong", 
+      "Talpothar", "Hatigarh", "Dumsi", "Sitpani"
+    ];
+
+    // 3. SAMPLE PRODUCTS LIST
+    const products = [
+      { id: 'dk1', name: 'Assamese Special Veg Thali', category: 'Cooked Food', price: 150, img: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&q=80' },
+      { id: 'dk2', name: 'Chicken Biryani Special', category: 'Cooked Food', price: 180, img: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&q=80' },
+      { id: 'dk3', name: 'Local Chicken Curry (Plate)', category: 'Cooked Food', price: 210, img: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=300&q=80' },
+      { id: 'dk4', name: 'Fresh Alu / Potato (1 Kg)', category: 'Vegetables', price: 35, img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300&q=80' },
+      { id: 'dk5', name: 'Fresh Tomato (1 Kg)', category: 'Vegetables', price: 40, img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=300&q=80' },
+      { id: 'dk6', name: 'Fresh Green Veg Box', category: 'Vegetables', price: 90, img: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&q=80' },
+      { id: 'dk7', name: 'Veg Hakka Noodles Box', category: 'Snacks', price: 70, img: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=300&q=80' },
+      { id: 'dk8', name: 'Crispy Veg Momos (8 Pcs)', category: 'Snacks', price: 60, img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=300&q=80' }
+    ];
+
+    let cart = {};
+    let selectedCategory = 'all';
+    let currentSelectedArea = localStorage.getItem("dailykart_selected_area") || "";
+
+    // 4. INITIALIZE DROPDOWNS & LOCAL STORAGE
+    function initAreas() {
+      const areaListContainer = document.getElementById('areaListContainer');
+      const checkoutSelect = document.getElementById('checkoutAreaSelect');
+      const profSelect = document.getElementById('profArea');
+
+      areaListContainer.innerHTML = '';
+      checkoutSelect.innerHTML = '<option value="" disabled selected>-- Select delivery area --</option>';
+      profSelect.innerHTML = '<option value="" disabled selected>-- Select default area --</option>';
+
+      coverageAreas.forEach(area => {
+        // Modal area items
+        const itemBtn = document.createElement('button');
+        itemBtn.type = 'button';
+        itemBtn.className = `w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-between ${currentSelectedArea === area ? 'bg-orange-500 text-white' : 'hover:bg-orange-50 text-gray-800'}`;
+        itemBtn.innerHTML = `<span>${area}</span> <i class="fa-solid fa-check ${currentSelectedArea === area ? 'opacity-100' : 'opacity-0'}"></i>`;
+        itemBtn.onclick = () => setDeliveryArea(area);
+        areaListContainer.appendChild(itemBtn);
+
+        // Checkout dropdown
+        const opt1 = document.createElement('option');
+        opt1.value = area;
+        opt1.textContent = area;
+        checkoutSelect.appendChild(opt1);
+
+        // Profile dropdown
+        const opt2 = document.createElement('option');
+        opt2.value = area;
+        opt2.textContent = area;
+        profSelect.appendChild(opt2);
+      });
+
+      if (currentSelectedArea) {
+        document.getElementById('headerSelectedArea').textContent = currentSelectedArea;
+        checkoutSelect.value = currentSelectedArea;
+      }
+    }
+
+    function setDeliveryArea(area) {
+      currentSelectedArea = area;
+      localStorage.setItem("dailykart_selected_area", area);
+      document.getElementById('headerSelectedArea').textContent = area;
+      document.getElementById('checkoutAreaSelect').value = area;
+      toggleAreaModal(false);
+      initAreas();
+    }
+
+    // 5. CUSTOMER PROFILE HANDLING (localStorage)
+    function loadProfile() {
+      const saved = localStorage.getItem("dailykart_customer_profile");
+      if (saved) {
+        const data = JSON.parse(saved);
+        document.getElementById('profName').value = data.name || '';
+        document.getElementById('profPhone').value = data.phone || '';
+        document.getElementById('profArea').value = data.area || '';
+        document.getElementById('profAddress').value = data.address || '';
+
+        // Auto-fill checkout form
+        document.getElementById('custName').value = data.name || '';
+        document.getElementById('custPhone').value = data.phone || '';
+        document.getElementById('custAddress').value = data.address || '';
+        if (data.area) {
+          setDeliveryArea(data.area);
+        }
+      }
+    }
+
+    function saveProfile() {
+      const name = document.getElementById('profName').value.trim();
+      const phone = document.getElementById('profPhone').value.trim();
+      const area = document.getElementById('profArea').value;
+      const address = document.getElementById('profAddress').value.trim();
+
+      if (!name || !phone) {
+        alert("Please enter your name and phone number!");
+        return;
+      }
+
+      const prof = { name, phone, area, address };
+      localStorage.setItem("dailykart_customer_profile", JSON.stringify(prof));
+
+      // Auto update checkout form
+      document.getElementById('custName').value = name;
+      document.getElementById('custPhone').value = phone;
+      document.getElementById('custAddress').value = address;
+      if (area) setDeliveryArea(area);
+
+      toggleProfileModal(false);
+      alert("Profile details saved successfully!");
+    }
+
+    // 6. RENDER & FILTER MENU ITEMS
+    function renderProducts(items) {
+      const grid = document.getElementById('productGrid');
+      const countLabel = document.getElementById('itemCountLabel');
+      grid.innerHTML = '';
+      countLabel.textContent = `${items.length} item(s)`;
+
+      if (items.length === 0) {
+        grid.innerHTML = `<p class="col-span-full text-center py-10 text-gray-400 text-sm">No items found matching your criteria.</p>`;
+        return;
+      }
+
+      items.forEach(p => {
+        const qty = cart[p.id]?.qty || 0;
+        grid.innerHTML += `
+          <div class="bg-white rounded-2xl p-3 border border-orange-100 shadow-xs hover:shadow-md transition flex flex-col justify-between">
+            <div>
+              <div class="w-full h-28 rounded-xl overflow-hidden mb-2 bg-orange-50">
+                <img src="${p.img}" alt="${p.name}" class="w-full h-full object-cover">
+              </div>
+              <h4 class="font-extrabold text-gray-900 text-xs sm:text-sm line-clamp-1">${p.name}</h4>
+              <p class="text-[10px] font-semibold text-orange-500">${p.category}</p>
+            </div>
+            <div class="mt-3 flex items-center justify-between">
+              <span class="text-sm font-black text-gray-900">₹${p.price}</span>
+              ${qty === 0 ? `
+                <button onclick="changeQty('${p.id}', 1)" class="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition shadow-xs shadow-orange-300">
+                  + Add
+                </button>
+              ` : `
+                <div class="flex items-center gap-2 bg-orange-50 rounded-xl px-2.5 py-1 border border-orange-200">
+                  <button onclick="changeQty('${p.id}', -1)" class="text-orange-600 font-black text-xs hover:scale-110">-</button>
+                  <span class="text-xs font-black text-orange-950 min-w-[12px] text-center">${qty}</span>
+                  <button onclick="changeQty('${p.id}', 1)" class="text-orange-600 font-black text-xs hover:scale-110">+</button>
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function filterItems() {
+      const term = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = products.filter(p => {
+        const matchesCat = (selectedCategory === 'all' || p.category === selectedCategory);
+        const matchesSearch = p.name.toLowerCase().includes(term);
+        return matchesCat && matchesSearch;
+      });
+      renderProducts(filtered);
+    }
+
+    function selectCategory(cat) {
+      selectedCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.remove('bg-orange-500', 'text-white', 'shadow-sm', 'shadow-orange-200');
+        btn.classList.add('bg-white', 'text-gray-700', 'border', 'border-orange-100');
+      });
+      event.target.classList.remove('bg-white', 'text-gray-700', 'border', 'border-orange-100');
+      event.target.classList.add('bg-orange-500', 'text-white', 'shadow-sm', 'shadow-orange-200');
+      filterItems();
+    }
+
+    // 7. CART ENGINE
+    function changeQty(id, delta) {
+      if(!cart[id]) {
+        const item = products.find(p => p.id === id);
+        cart[id] = { ...item, qty: 0 };
+      }
+      cart[id].qty += delta;
+      if(cart[id].qty <= 0) {
+        delete cart[id];
+      }
+      updateCartUI();
+      filterItems();
+    }
+
+    function updateCartUI() {
+      const items = Object.values(cart);
+      const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
+      const totalAmt = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+
+      // Top badge
+      const badge = document.getElementById('cartCountBadge');
+      if (totalQty > 0) {
+        badge.textContent = totalQty;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      // Bottom floating bar
+      const bottomBar = document.getElementById('bottomCartBar');
+      if (totalQty > 0) {
+        bottomBar.classList.remove('hidden');
+        document.getElementById('bottomBarQty').textContent = totalQty;
+        document.getElementById('bottomBarTotal').textContent = `₹${totalAmt}`;
+      } else {
+        bottomBar.classList.add('hidden');
+      }
+
+      // Inside Modal
+      const container = document.getElementById('cartItemsContainer');
+      const emptyNotice = document.getElementById('emptyCartNotice');
+      const formSection = document.getElementById('checkoutFormSection');
+      const footer = document.getElementById('cartFooter');
+      
+      container.innerHTML = '';
+      if(items.length === 0) {
+        emptyNotice.classList.remove('hidden');
+        formSection.classList.add('hidden');
+        footer.classList.add('hidden');
+      } else {
+        emptyNotice.classList.add('hidden');
+        formSection.classList.remove('hidden');
+        footer.classList.remove('hidden');
+
+        items.forEach(item => {
+          container.innerHTML += `
+            <div class="flex items-center justify-between p-2.5 bg-orange-50/50 rounded-xl border border-orange-100">
+              <div>
+                <h5 class="text-xs font-bold text-gray-800">${item.name}</h5>
+                <p class="text-[11px] text-gray-500">₹${item.price} x ${item.qty} = <span class="font-extrabold text-orange-600">₹${item.price * item.qty}</span></p>
+              </div>
+              <div class="flex items-center gap-2 bg-white rounded-lg px-2 py-1 border border-orange-200 shadow-xs">
+                <button onclick="changeQty('${item.id}', -1)" class="text-orange-600 font-bold px-1 text-xs">-</button>
+                <span class="text-xs font-extrabold text-gray-800">${item.qty}</span>
+                <button onclick="changeQty('${item.id}', 1)" class="text-orange-600 font-bold px-1 text-xs">+</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      document.getElementById('cartTotalSum').textContent = `₹${totalAmt}`;
+
+      // Update Dynamic UPI QR Code
+      const upiUrl = `upi://pay?pa=${UPI_ID}&pn=DailyKart%20Delivery&am=${totalAmt}&cu=INR`;
+      document.getElementById('upiQrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(upiUrl)}`;
+    }
+
+    // Modal Toggles
+    function toggleCartModal(show) { document.getElementById('cartModal').classList.toggle('hidden', !show); }
+    function toggleProfileModal(show) { document.getElementById('profileModal').classList.toggle('hidden', !show); }
+    function toggleAreaModal(show) { document.getElementById('areaModal').classList.toggle('hidden', !show); }
+
+    function handlePaymentChange(type) {
+      const upiBox = document.getElementById('upiDetailBox');
+      const lblCod = document.getElementById('lblCod');
+      const lblUpi = document.getElementById('lblUpi');
+
+      if(type === 'UPI') {
+        upiBox.classList.remove('hidden');
+        lblUpi.classList.add('border-orange-500', 'bg-orange-50/50');
+        lblCod.classList.remove('border-orange-500', 'bg-orange-50/50');
+      } else {
+        upiBox.classList.add('hidden');
+        lblCod.classList.add('border-orange-500', 'bg-orange-50/50');
+        lblUpi.classList.remove('border-orange-500', 'bg-orange-50/50');
+      }
+    }
+
+    // 8. PLACE ORDER TO FIRESTORE & OPEN WHATSAPP
+    async function placeOrder() {
+      const name = document.getElementById('custName').value.trim();
+      const phone = document.getElementById('custPhone').value.trim();
+      const area = document.getElementById('checkoutAreaSelect').value;
+      const landmark = document.getElementById('custAddress').value.trim();
+      const payType = document.querySelector('input[name="paymentType"]:checked').value;
+
+      if(!name || !phone || !area) {
+        alert("Please enter Name, Phone Number, and select Delivery Area.");
+        return;
+      }
+
+      const items = Object.values(cart);
+      const totalAmt = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+      const orderBtn = document.getElementById('orderBtn');
+      orderBtn.disabled = true;
+      orderBtn.innerHTML = `<span>Placing Order...</span>`;
+
+      // Save locally to profile if not already saved
+      if (!localStorage.getItem("dailykart_customer_profile")) {
+        localStorage.setItem("dailykart_customer_profile", JSON.stringify({ name, phone, area, address: landmark }));
+      }
+
+      const orderPayload = {
+        customerName: name,
+        customerPhone: phone,
+        deliveryArea: area,
+        landmark: landmark || "N/A",
+        paymentMethod: payType,
+        items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price, subtotal: i.qty * i.price })),
+        grandTotal: totalAmt,
+        status: "Pending",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      try {
+        // Save to Firebase Firestore collection 'orders'
+        const docRef = await db.collection("orders").add(orderPayload);
+
+        // Prepare neat WhatsApp message
+        let itemListText = items.map(i => `• ${i.name} (Qty: ${i.qty}) = ₹${i.price * i.qty}`).join('\n');
+        let message = `🛒 *NEW ORDER: DailyKart-Local Delivery*\n` +
+                      `---------------------------------\n` +
+                      `*Order Ref:* #${docRef.id.slice(0, 6).toUpperCase()}\n` +
+                      `*Customer:* ${name}\n` +
+                      `*Phone:* ${phone}\n` +
+                      `*Delivery Area:* ${area}\n` +
+                      `*Address/Landmark:* ${landmark || 'Not provided'}\n\n` +
+                      `*Order Summary:*\n${itemListText}\n\n` +
+                      `*Total Payable:* ₹${totalAmt}\n` +
+                      `*Payment Mode:* ${payType} ${payType === 'UPI' ? '(To: 9365822867@ybl)' : ''}\n` +
+                      `---------------------------------\n` +
+                      `Please confirm and dispatch!`;
+
+        // Reset Cart
+        cart = {};
+        updateCartUI();
+        toggleCartModal(false);
+
+        // Open WhatsApp
+        const waLink = `https://wa.me/${ADMIN_PHONE}?text=${encodeURIComponent(message)}`;
+        window.location.href = waLink;
+
+      } catch (err) {
+        console.error("Firestore submission failed:", err);
+        alert("Failed to submit order. Please check internet connection.");
+      } finally {
+        orderBtn.disabled = false;
+        orderBtn.innerHTML = `<span>Place Order on WhatsApp</span> <i class="fa-brands fa-whatsapp text-lg"></i>`;
+      }
+    }
+
+    // Startup Execution
+    initAreas();
+    loadProfile();
+    renderProducts(products);
+  </script>
+</body>
+</html>
